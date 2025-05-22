@@ -14,13 +14,9 @@
       overflow-x: hidden;
       position: relative;
     }
-
     h2 {
-      color: #333;
       font-size: 24px;
-      margin-bottom: 20px;
     }
-
     input, select, button {
       font-size: 18px;
       padding: 12px;
@@ -29,7 +25,6 @@
       max-width: 300px;
       box-sizing: border-box;
     }
-
     button {
       background-color: #4CAF50;
       color: white;
@@ -37,73 +32,81 @@
       cursor: pointer;
       border-radius: 8px;
     }
-
-    #result {
+    #result, #history {
       margin-top: 20px;
       font-size: 18px;
-      color: #333;
-      position: relative;
       line-height: 1.6;
+      color: #333;
     }
-
-    .falling {
+    .record {
+      border-bottom: 1px solid #ccc;
+      margin: 10px 0;
+      padding-bottom: 5px;
+    }
+    .falling, .confetti {
       position: absolute;
-      font-size: 250px;
-      z-index: 10;
-      animation: fall 3s ease-in forwards;
       pointer-events: none;
+      z-index: 10;
     }
-
+    .falling {
+      font-size: 250px;
+      animation: fall 3s ease-in forwards;
+    }
     .confetti {
-      position: absolute;
-      width: 10px;
-      height: 20px;
+      width: 12px;
+      height: 24px;
       border-radius: 3px;
       opacity: 0.9;
       transform: rotate(45deg);
       z-index: 5;
-      pointer-events: none;
     }
-
     @keyframes fall {
-      0%   { top: -400px; opacity: 0.8; transform: rotate(0deg); }
-      50%  { transform: rotate(10deg); }
-      100% { transform: rotate(-10deg); top: var(--fall-y); opacity: 1; }
+      0% { top: -400px; opacity: 0.8; transform: rotate(0deg); }
+      50% { transform: rotate(10deg); }
+      100% { top: var(--fall-y); opacity: 1; transform: rotate(-10deg); }
     }
-
     @keyframes fallConfetti {
-      0%   { top: -50px; opacity: 1; }
-      100% { top: var(--fall-y); transform: rotate(360deg); opacity: 1; }
-    }
-
-    .shake {
-      animation: shake 0.4s ease-in-out;
-    }
-
-    @keyframes shake {
-      0% { transform: translateY(0); }
-      25% { transform: translateY(-10px); }
-      50% { transform: translateY(5px); }
-      75% { transform: translateY(-5px); }
-      100% { transform: translateY(0); }
+      0% { top: -60px; opacity: 1; transform: rotate(0deg); }
+      100% { top: 100vh; opacity: 1; transform: rotate(360deg); }
     }
   </style>
 </head>
 <body>
   <h2>BMI 計算器</h2>
-
   <select id="gender">
     <option value="male">男生</option>
     <option value="female">女生</option>
   </select><br />
-
   <input id="height" type="number" placeholder="身高（公分）" /><br />
   <input id="weight" type="number" placeholder="體重（公斤）" /><br />
   <button onclick="calculateBMI()">計算 BMI</button>
+  <button onclick="clearHistory()" style="background-color:#e53935;margin-top:5px">清除紀錄</button>
 
   <div id="result"></div>
+  <div id="history"></div>
 
   <script>
+    document.getElementById("gender").addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        document.getElementById("height").focus();
+      }
+    });
+
+    document.getElementById("height").addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        document.getElementById("weight").focus();
+      }
+    });
+
+    document.getElementById("weight").addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        calculateBMI();
+      }
+    });
+
     function calculateBMI() {
       const h = parseFloat(document.getElementById("height").value) / 100;
       const w = parseFloat(document.getElementById("weight").value);
@@ -119,55 +122,79 @@
       document.body.classList.remove("shake");
 
       const bmi = w / (h * h);
-      let message = `你的 BMI 是 ${bmi.toFixed(2)}，`;
-
-      const minWeight = (18.5 * h * h).toFixed(1);
-      const maxWeight = (24 * h * h).toFixed(1);
-      message += `<br>🔍 ${gender === 'male' ? '男生' : '女生'}理想體重區間：約 ${minWeight} ~ ${maxWeight} 公斤`;
-
+      let status = "";
       if (bmi < 18.5) {
-        message = `你的 BMI 是 ${bmi.toFixed(2)}，體重過輕` + message;
+        status = "體重過輕";
         dropSymbol("🪶", result);
       } else if (bmi < 24) {
-        message = `你的 BMI 是 ${bmi.toFixed(2)}，體重正常` + message;
-        launchConfetti(result);
+        status = "體重正常";
+        launchConfetti();
       } else {
-        message = `你的 BMI 是 ${bmi.toFixed(2)}，體重過重` + message;
+        status = "體重過重";
         dropSymbol("🪨", result);
         document.body.classList.add("shake");
       }
 
+      const now = new Date();
+      const time = now.toLocaleString("zh-TW");
+      const message = `你的 BMI 是 ${bmi.toFixed(2)}，${status}<br>🔍 ${gender === 'male' ? '男生' : '女生'} 理想體重區間：約 ${(18.5 * h * h).toFixed(1)} ~ ${(24 * h * h).toFixed(1)} 公斤<br>🕒 ${time}`;
+
       result.innerHTML = message;
+
+      const record = { gender, height: h * 100, weight: w, bmi: bmi.toFixed(2), status, time };
+      saveRecord(record);
+      renderHistory();
     }
 
     function dropSymbol(symbol, target) {
-      const el = document.createElement("div");
-      el.className = "falling";
-      el.innerText = symbol;
-      const targetRect = target.getBoundingClientRect();
-      const fallY = targetRect.top + targetRect.height + 40;
-      el.style.setProperty('--fall-y', `${fallY}px`);
-      el.style.left = `${window.innerWidth / 2 - 120 + Math.random() * 60}px`;
-      requestAnimationFrame(() => {
-        document.body.appendChild(el);
+      const positions = [0.15, 0.75];
+      positions.forEach(pos => {
+        const el = document.createElement("div");
+        el.className = "falling";
+        el.innerText = symbol;
+        const targetRect = target.getBoundingClientRect();
+        el.style.setProperty('--fall-y', `${targetRect.top + targetRect.height + 40}px`);
+        el.style.left = `${window.innerWidth * pos}px`;
+        requestAnimationFrame(() => document.body.appendChild(el));
       });
     }
 
-    function launchConfetti(target) {
+    function launchConfetti() {
       const colors = ['#f94144', '#f3722c', '#f9c74f', '#90be6d', '#577590', '#277da1'];
-      const targetRect = target.getBoundingClientRect();
-      const fallY = targetRect.top + targetRect.height + 40;
-
-      for (let i = 0; i < 60; i++) {
+      for (let i = 0; i < 100; i++) {
         const confetti = document.createElement('div');
         confetti.className = 'confetti';
         confetti.style.left = Math.random() * window.innerWidth + 'px';
         confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-        confetti.style.setProperty('--fall-y', `${fallY}px`);
         confetti.style.animation = `fallConfetti ${3 + Math.random()}s linear forwards`;
         document.body.appendChild(confetti);
       }
     }
+
+    function saveRecord(record) {
+      const records = JSON.parse(localStorage.getItem('bmiHistory') || '[]');
+      records.push(record);
+      localStorage.setItem('bmiHistory', JSON.stringify(records));
+    }
+
+    function renderHistory() {
+      const history = document.getElementById("history");
+      const records = JSON.parse(localStorage.getItem('bmiHistory') || '[]');
+      history.innerHTML = '<h3>歷史紀錄</h3>' + records.map(r => `
+        <div class="record">
+          🕒 ${r.time}<br>
+          👤 ${r.gender === 'male' ? '男生' : '女生'}｜📏 ${r.height}cm｜⚖️ ${r.weight}kg<br>
+          💡 BMI：${r.bmi}（${r.status}）
+        </div>
+      `).join('');
+    }
+
+    function clearHistory() {
+      localStorage.removeItem('bmiHistory');
+      renderHistory();
+    }
+
+    renderHistory();
   </script>
 </body>
 </html>
